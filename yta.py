@@ -4,29 +4,38 @@ from flask import request
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
 import requests
-
+from flask import jsonify
 from flask import Flask
+
 app = Flask(__name__)
-#CORS(app)
+
 secret_api_key = "AIzaSyB2GyWjg0KHHU-kezYgDjJGO-AhBoALwAc"
 youtube_data_api_url = "https://www.googleapis.com/youtube/v3/videos?part=id%2C+snippet&id={}&key={}"
-#from flask_cors import CORS
-from flask import jsonify
+
+def check_music_token(text_chunk):
+    return '[Musique]' not in text_chunk and '[Music]' not in text_chunk
 
 
 def start_transcript(video_id):
-    transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['fr', 'en'])
-    transcript = ""
-    for doc in transcript_list:
+    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+    transcript_content_string = ""
+    language=""
+    video_title=""
+    for transcript in transcript_list:
+        transcript_content = transcript.fetch()
+        language = transcript.language_code
+        break
+
+    for doc in transcript_content:
         text_chunk = json.loads(json.dumps(doc))['text']
-        transcript+= text_chunk + " " if text_chunk!="[Musique]" else ""
-    
+        transcript_content_string+= text_chunk + " " if check_music_token(text_chunk) else ""
+
     youtube_data_api_uri = youtube_data_api_url.format(video_id, secret_api_key)
     r = requests.get(url = youtube_data_api_uri)
-  
+
     data = r.json()
     video_title = data['items'][0]['snippet']['title']
-    return {"transcript": transcript, "video_title": video_title}
+    return {"language": language, "transcript": transcript_content_string, "video_title": video_title}
 
 
 
